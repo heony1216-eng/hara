@@ -1,0 +1,182 @@
+<div id="world-map-wrapper" style="width: 100%; max-width: 1200px; margin: 0 auto; position: relative;">
+    
+    <style>
+        /* 스타일은 기존과 동일 */
+        #world-map-wrapper .map-container {
+            position: relative; width: 100%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            border-radius: 10px; overflow: hidden; 
+            line-height: 0; cursor: pointer; background-color: #000;
+            -webkit-tap-highlight-color: transparent; outline: none;
+        }
+        #world-map-wrapper .map-container:fullscreen { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+        #world-map-wrapper .map-container:-webkit-full-screen { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+        
+        #world-map-wrapper .map-image {
+            width: 100%; height: auto; display: block;
+            transition: opacity 0.5s ease-in-out; 
+            max-height: 100vh; object-fit: contain; 
+        }
+
+        #world-map-wrapper .base-layer { position: relative; z-index: 1; }
+        #world-map-wrapper .overlay-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 5; opacity: 0; pointer-events: none;
+        }
+        #world-map-wrapper .overlay-layer.active { opacity: 1; }
+
+        #world-map-wrapper #clocks-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; transition: opacity 0.5s ease-in-out; pointer-events: none;
+        }
+        #world-map-wrapper .hidden { opacity: 0 !important; }
+
+        #world-map-wrapper .time-text {
+            position: absolute; transform: translate(-50%, -50%);
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            font-size: 14px; font-weight: 800; color: #000000; line-height: normal;
+            text-shadow: -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff, 0 0 8px rgba(255,255,255,0.8);
+            font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; white-space: nowrap;
+        }
+        @media (max-width: 768px) { #world-map-wrapper .time-text { font-size: 10px; } }
+    </style>
+
+    <div class="map-container" id="fullscreen-target" tabindex="0">
+        <img src="https://cdn.imweb.me/upload/S20221123700ca8cd5ea82/fa5b65761fcbb.jpg" alt="세계지도" class="map-image base-layer">
+        <img id="overlay-image" src="https://cdn.imweb.me/upload/S20221123700ca8cd5ea82/aaaf16ac94215.jpg" alt="안내 이미지" class="map-image overlay-layer">
+        <div id="clocks-layer"></div>
+    </div>
+
+    <script>
+        (function() {
+            const locations = [
+                { name: '대한민국', zone: 'Asia/Seoul', top: 54, left: 43.5 },
+                { name: '중국', zone: 'Asia/Shanghai', top: 50, left: 38 },
+                { name: '러시아', zone: 'Europe/Moscow', top: 34, left: 37 },
+                { name: '카자흐스탄', zone: 'Asia/Almaty', top: 45, left: 31 },
+                { name: '두바이', zone: 'Asia/Dubai', top: 60, left: 28 },
+                { name: '오스트레일리아', zone: 'Australia/Sydney', top: 73.5, left: 44 },
+                { name: '미국', zone: 'America/New_York', top: 48.5, left: 69 },
+                { name: '캐나다', zone: 'America/Toronto', top: 37, left: 67 },
+                { name: '그린란드', zone: 'America/Nuuk', top: 21, left: 82 },
+                { name: '브라질', zone: 'America/Sao_Paulo', top: 68, left: 79 },
+                { name: '아이슬란드', zone: 'Atlantic/Reykjavik', top: 33, left: 13 }
+            ];
+
+            const wrapper = document.getElementById('world-map-wrapper');
+            const container = wrapper.querySelector('#fullscreen-target');
+            const overlayImageEl = wrapper.querySelector('#overlay-image');
+            const clocksLayerEl = wrapper.querySelector('#clocks-layer');
+            
+            let isWorldTimeMode = null; 
+            let clickStep = 0; 
+            let idleTimer = null; 
+
+            function initClocks() {
+                locations.forEach((loc, index) => {
+                    const el = document.createElement('div');
+                    el.className = 'time-text';
+                    el.id = `map-clock-${index}`;
+                    el.style.top = loc.top + '%';
+                    el.style.left = loc.left + '%';
+                    el.textContent = "";
+                    clocksLayerEl.appendChild(el);
+                });
+                checkTimeAndToggle(); 
+            }
+
+            // --- [수정됨] 15초 간격 로직 ---
+            function checkTimeAndToggle() {
+                const now = new Date();
+                
+                // 시계 업데이트
+                updateClockText(now);
+
+                // 수동 조작 중이면 자동 전환 일시 정지
+                if (clickStep !== 0) {
+                    return; 
+                }
+
+                const seconds = now.getSeconds();
+                
+                // 30초 주기로 계산 (0~14초: 지도, 15~29초: 이미지, 30~44초: 지도...)
+                // 즉, 15초마다 바뀝니다.
+                const shouldShowMap = (seconds % 30) < 15;
+
+                if (isWorldTimeMode !== shouldShowMap) {
+                    isWorldTimeMode = shouldShowMap;
+                    applyScreenState();
+                }
+            }
+
+            function applyScreenState() {
+                if (isWorldTimeMode) {
+                    overlayImageEl.classList.remove('active');
+                    clocksLayerEl.classList.remove('hidden');
+                } else {
+                    overlayImageEl.classList.add('active');
+                    clocksLayerEl.classList.add('hidden');
+                }
+            }
+
+            function updateClockText(now) {
+                if (!isWorldTimeMode && clickStep === 0) return; 
+
+                locations.forEach((loc, index) => {
+                    const clockEl = wrapper.querySelector(`#map-clock-${index}`);
+                    if(clockEl) {
+                        const timeString = new Intl.DateTimeFormat('ko-KR', {
+                            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: loc.zone
+                        }).format(now);
+                        clockEl.textContent = timeString;
+                    }
+                });
+            }
+
+            // --- 클릭 및 자동 복귀 ---
+            container.addEventListener('click', function() {
+                clickStep++;
+                if (clickStep > 2) clickStep = 0;
+
+                if (clickStep === 1) {
+                    try {
+                        if (container.requestFullscreen) container.requestFullscreen();
+                        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+                        else if (container.msRequestFullscreen) container.msRequestFullscreen();
+                    } catch(e) {}
+                } 
+                else if (clickStep === 2) {
+                    isWorldTimeMode = !isWorldTimeMode;
+                    applyScreenState();
+                } 
+                else {
+                    resetToAutoMode();
+                    return;
+                }
+
+                if (idleTimer) clearTimeout(idleTimer);
+                idleTimer = setTimeout(resetToAutoMode, 10000); // 10초 뒤 자동 복귀
+            });
+
+            function resetToAutoMode() {
+                clickStep = 0;
+                if (idleTimer) clearTimeout(idleTimer);
+                
+                try {
+                    if (document.exitFullscreen) document.exitFullscreen();
+                    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                    else if (document.msExitFullscreen) document.msExitFullscreen();
+                } catch(e) {}
+
+                // 현재 초(Seconds)를 기준으로 즉시 화면 복구
+                const now = new Date();
+                const seconds = now.getSeconds();
+                isWorldTimeMode = (seconds % 30) < 15;
+                applyScreenState();
+            }
+
+            initClocks(); 
+            setInterval(checkTimeAndToggle, 1000); 
+        })();
+    </script>
+</div>
