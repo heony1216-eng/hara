@@ -121,6 +121,7 @@ export default function Home() {
           slides={slidePanelData}
           currentIndex={currentSlideIndex}
           onSlideSelect={setCurrentSlideIndex}
+          editMode={settings.editMode}
         />
       )}
 
@@ -142,6 +143,7 @@ export default function Home() {
             autoPlay={settings.autoPlay && !settings.editMode}
             currentIndex={currentSlideIndex}
             onIndexChange={setCurrentSlideIndex}
+            editMode={settings.editMode}
           >
             {slides}
           </SlideShow>

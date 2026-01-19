@@ -9,6 +9,7 @@ interface SlideShowProps {
   autoPlay: boolean;
   currentIndex: number;
   onIndexChange: (index: number) => void;
+  editMode?: boolean; // 편집 모드일 때 슬라이드 이동 비활성화
 }
 
 export function SlideShow({
@@ -18,6 +19,7 @@ export function SlideShow({
   autoPlay,
   currentIndex,
   onIndexChange,
+  editMode = false,
 }: SlideShowProps) {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [displayIndex, setDisplayIndex] = useState(currentIndex);
@@ -39,27 +41,28 @@ export function SlideShow({
 
   // 다음 슬라이드로 이동
   const goToNext = useCallback((manual: boolean = false) => {
-    if (slideCount <= 1) return;
+    if (editMode || slideCount <= 1) return; // 편집 모드일 때 이동 불가
     const nextIndex = (currentIndex + 1) % slideCount;
     onIndexChange(nextIndex);
     if (manual) showIndicatorBriefly();
-  }, [currentIndex, slideCount, onIndexChange, showIndicatorBriefly]);
+  }, [editMode, currentIndex, slideCount, onIndexChange, showIndicatorBriefly]);
 
   // 이전 슬라이드로 이동
   const goToPrev = useCallback((manual: boolean = false) => {
-    if (slideCount <= 1) return;
+    if (editMode || slideCount <= 1) return; // 편집 모드일 때 이동 불가
     const prevIndex = (currentIndex - 1 + slideCount) % slideCount;
     onIndexChange(prevIndex);
     if (manual) showIndicatorBriefly();
-  }, [currentIndex, slideCount, onIndexChange, showIndicatorBriefly]);
+  }, [editMode, currentIndex, slideCount, onIndexChange, showIndicatorBriefly]);
 
   // 특정 슬라이드로 이동
   const goToSlide = useCallback((index: number) => {
+    if (editMode) return; // 편집 모드일 때 이동 불가
     if (index >= 0 && index < slideCount && index !== currentIndex) {
       onIndexChange(index);
       showIndicatorBriefly();
     }
-  }, [slideCount, currentIndex, onIndexChange, showIndicatorBriefly]);
+  }, [editMode, slideCount, currentIndex, onIndexChange, showIndicatorBriefly]);
 
   // 슬라이드 전환 효과
   useEffect(() => {

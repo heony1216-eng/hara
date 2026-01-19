@@ -10,20 +10,22 @@ interface SlidePanelProps {
   }[];
   currentIndex: number;
   onSlideSelect: (index: number) => void;
+  editMode?: boolean;
 }
 
-export function SlidePanel({ slides, currentIndex, onSlideSelect }: SlidePanelProps) {
+export function SlidePanel({ slides, currentIndex, onSlideSelect, editMode = false }: SlidePanelProps) {
   return (
     <div className="w-[200px] h-full bg-neutral-900 border-r border-neutral-700 overflow-y-auto">
       <div className="p-3 space-y-2">
         {slides.map((slide, index) => (
           <button
             key={slide.id}
-            onClick={() => onSlideSelect(index)}
+            onClick={() => !editMode && onSlideSelect(index)}
+            disabled={editMode}
             className={`w-full text-left transition-all ${
               currentIndex === index
                 ? 'ring-2 ring-blue-500'
-                : 'hover:ring-1 hover:ring-white/30'
+                : editMode ? 'opacity-50 cursor-not-allowed' : 'hover:ring-1 hover:ring-white/30'
             }`}
           >
             {/* 썸네일 영역 */}
